@@ -28,13 +28,13 @@ Hazır kullanıcı yok, kendin açıyosun:
 
 ## Servisler
 
-| Servis   | Port  | Ne yapıyo                       |
-| -------- | ----- | ------------------------------- |
-| frontend | 80    | React + Nginx, production build |
-| backend  | 8000  | FastAPI, tüm API ve WebSocket   |
-| postgres | 5432  | Kullanıcı verileri              |
-| mongodb  | 27017 | Task verileri                   |
-| redis    | 6379  | Cache                           |
+| Servis   | Port  | Ne yapıyo                             |
+| -------- | ----- | ------------------------------------- |
+| nginx    | 80    | Frontend build + serve, reverse proxy |
+| backend  | 8000  | FastAPI, tüm API ve WebSocket         |
+| postgres | 5432  | Kullanıcı verileri                    |
+| mongodb  | 27017 | Task verileri                         |
+| redis    | 6379  | Cache                                 |
 
 ## Redis neden ve nasıl kullanıldı
 
@@ -105,14 +105,17 @@ Async native olduğu için WebSocket ve yüksek performans için uygun. Otomatik
 **Neden Socket.IO?**
 Plain WebSocket yerine Socket.IO kullandım çünkü reconnect, room desteği ve fallback mekanizması hazır geliyo.
 
-**Neden Nginx?**
-Frontend'i serve etmek için. Ayrıca production'da reverse proxy olarak da kullanılabilir.
+**Neden ayrı Nginx servisi?**
+Frontend'i ayrı bi servis olarak sunmak istedim. Nginx multi-stage build ile önce React'ı build ediyo, sonra static dosyaları serve ediyo. Ayrıca `/api/` isteklerini backend'e, `/socket.io/` isteklerini WebSocket'e yönlendiriyo. Böylece tek giriş noktası oluyo.
 
 ## Klasör yapısı
 
 ```
 ├── docker-compose.yml
 ├── .env.example
+├── nginx/
+│   ├── Dockerfile
+│   └── nginx.conf
 ├── packages/
 │   ├── backend/
 │   │   ├── app/
@@ -127,7 +130,6 @@ Frontend'i serve etmek için. Ayrıca production'da reverse proxy olarak da kull
 │   │   └── Dockerfile
 │   └── frontend/
 │       ├── src/
-│       ├── nginx.conf
 │       └── Dockerfile
 ```
 

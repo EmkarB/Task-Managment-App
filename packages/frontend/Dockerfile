@@ -1,4 +1,4 @@
-# Build stage
+# Build stage only - nginx will serve the files
 FROM node:20-alpine as builder
 
 WORKDIR /app
@@ -15,17 +15,11 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# Production stage
-FROM nginx:alpine
+# Final stage - just copy built files to a minimal image for volume sharing
+FROM alpine:latest
 
-# Copy nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy built files
+COPY --from=builder /app/dist /app/dist
 
-# Copy built files from builder
-COPY --from=builder /app/dist /usr/share/nginx/html
-
-# Expose port
-EXPOSE 80
-
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Keep container running (files will be shared via volume)
+CMD ["tail", "-f", "/dev/null"]

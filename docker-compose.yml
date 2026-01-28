@@ -12,7 +12,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-taskuser} -d ${POSTGRES_DB:-taskdb}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-taskuser} -d ${POSTGRES_DB:-taskdb}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -86,12 +90,12 @@ services:
     networks:
       - taskapp-network
 
-  # Frontend - React + Nginx
-  frontend:
+  # Nginx - Frontend Build & Reverse Proxy
+  nginx:
     build:
-      context: ./packages/frontend
-      dockerfile: Dockerfile
-    container_name: taskapp-frontend
+      context: .
+      dockerfile: nginx/Dockerfile
+    container_name: taskapp-nginx
     ports:
       - "80:80"
     depends_on:
