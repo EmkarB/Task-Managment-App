@@ -8,7 +8,9 @@ RUN npm run build
 
 # sonra nginx'e atıyoruz
 FROM nginx:alpine
-COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
+# template envsubst ile islenir: BACKEND_HOST compose'da "backend", ECS'te "127.0.0.1"
+ENV BACKEND_HOST=backend
+COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=builder /app/dist /usr/share/nginx/html
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

@@ -1,0 +1,24 @@
+# Ortam / gizli
+.env
+.env.*
+*.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Sanal ortamlar
+.venv/
+venv/
+env/
+
+# Git / IDE / OS
+.git/
+.gitignore
+.vscode/
+.idea/
+.DS_Store

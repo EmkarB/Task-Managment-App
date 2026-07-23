@@ -1,0 +1,5 @@
+# Kopyalayin: cp terraform.tfvars.example terraform.tfvars
+# state_bucket_name GLOBAL benzersiz olmali (tum AWS'te).
+region            = "eu-south-2"
+project           = "taskapp"
+state_bucket_name = "taskapp-tfstate-CHANGEME-eusouth2"

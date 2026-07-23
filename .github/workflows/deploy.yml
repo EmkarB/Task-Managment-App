@@ -1,0 +1,117 @@
+name: Deploy to ECS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# OIDC ile AWS role assume; statik key yok
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+  build-and-push:
+    name: Build & push images
+    runs-on: ubuntu-latest
+    outputs:
+      backend_image: ${{ steps.img.outputs.backend }}
+      nginx_image: ${{ steps.img.outputs.nginx }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Compute image tags
+        id: img
+        run: |
+          echo "backend=${{ vars.ECR_BACKEND_REPO }}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          echo "nginx=${{ vars.ECR_NGINX_REPO }}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      # Fargate x86_64 -> imajlar mutlaka linux/amd64
+      - name: Build & push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: packages/backend
+          file: packages/backend/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ vars.ECR_BACKEND_REPO }}:${{ github.sha }}
+            ${{ vars.ECR_BACKEND_REPO }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & push nginx (frontend build dahil)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: nginx/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ vars.ECR_NGINX_REPO }}:${{ github.sha }}
+            ${{ vars.ECR_NGINX_REPO }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to ECS
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Mevcut task def'i indir (TF ilk revizyonu kurdu, CI bundan sonra bumpler)
+      - name: Download current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ vars.ECS_TASK_FAMILY }} \
+            --query 'taskDefinition' \
+            --output json > task-def.json
+
+      # backend container image'ini :sha ile guncelle
+      - name: Render backend image
+        id: render-backend
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-def.json
+          container-name: backend
+          image: ${{ needs.build-and-push.outputs.backend_image }}
+
+      # nginx container image'ini :sha ile guncelle (bir onceki cikti uzerine)
+      - name: Render nginx image
+        id: render-nginx
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ steps.render-backend.outputs.task-definition }}
+          container-name: nginx
+          image: ${{ needs.build-and-push.outputs.nginx_image }}
+
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render-nginx.outputs.task-definition }}
+          service: ${{ vars.ECS_SERVICE }}
+          cluster: ${{ vars.ECS_CLUSTER }}
+          wait-for-service-stability: true
