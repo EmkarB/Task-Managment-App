@@ -45,7 +45,7 @@ resource "aws_db_subnet_group" "this" {
 
 resource "aws_security_group" "rds" {
   name        = "${var.project}-rds-sg"
-  description = "RDS - sadece ECS task'tan 5432"
+  description = "RDS - sadece ECS task uzerinden 5432"
   vpc_id      = var.vpc_id
 
   ingress {

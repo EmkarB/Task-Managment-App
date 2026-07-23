@@ -38,7 +38,7 @@ resource "aws_security_group" "alb" {
 
 resource "aws_security_group" "task" {
   name        = "${var.project}-task-sg"
-  description = "Fargate task - sadece ALB'den :80"
+  description = "Fargate task - sadece ALB uzerinden :80"
   vpc_id      = var.vpc_id
 
   ingress {
